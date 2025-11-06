@@ -46,13 +46,8 @@ dolly.add(controller2);
 
 
 // Left Controller Grip
-const controllerGrip1 = renderer.xr.getControllerGrip(0);
-dolly.add(controllerGrip1); // Add grip to dolly
 
 // Right Controller Grip
-const controllerGrip2 = renderer.xr.getControllerGrip(1);
-dolly.add(controllerGrip2); // Add grip to dolly
-
 
 // Variable to prevent turning every frame
 let turnDebounce = false;
