@@ -71,6 +71,7 @@ export class SolarSystem {
         this.marsOrbitNode.add(this.mars);
 
 
+
         this.sunLight = new PointLight(0xFFFFFF, 3);
         this.sun.add(this.sunLight);
 
