@@ -1,6 +1,6 @@
 ﻿"use strict";
 
-import {PerspectiveCamera, Scene, WebGLRenderer} from "../build/three.module.js";
+import {Group, PerspectiveCamera, Scene, WebGLRenderer} from "../build/three.module.js";
 import {SolarSystem} from "./SolarSystem.js";
 import {OrbitControls} from "../build/OrbitControls.js";
 import {VRButton} from "../build/VRButton.js";
@@ -17,6 +17,9 @@ const camera = new PerspectiveCamera(fov, aspect, near, far);
 // Flytter camera vekk fra sentrum, vil ikke ha noe effekt i VR
 camera.position.setZ(30);
 
+const dolly = new Group();
+dolly.add(camera)
+
 
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('webgl2');
@@ -28,6 +31,13 @@ renderer.setSize(width, height);
 // Dette er for å ha og aktivere VR
 document.body.appendChild(VRButton.createButton(renderer));
 renderer.xr.enabled = true;
+
+const controller1 = renderer.xr.getController(0);
+dolly.add(controller1);
+const controller2 = renerer.xr.getController(1);
+dolly.add(controller2);
+
+
 
 document.body.appendChild(renderer.domElement);
 
@@ -52,6 +62,8 @@ const solarSystem = new SolarSystem(scene);
 
 // Dette er kun hvis VR er i scenen
 renderer.setAnimationLoop(render);
+
+
 
 function render(){
     solarSystem.animate();
