@@ -1,6 +1,6 @@
 ﻿"use strict";
 
-import {Group, PerspectiveCamera, Scene, WebGLRenderer} from "../build/three.module.js";
+import {Group, PerspectiveCamera, Scene, Vector3, WebGLRenderer} from "../build/three.module.js";
 import {SolarSystem} from "./SolarSystem.js";
 import {OrbitControls} from "../build/OrbitControls.js";
 import {VRButton} from "../build/VRButton.js";
@@ -17,8 +17,6 @@ const camera = new PerspectiveCamera(fov, aspect, near, far);
 // Flytter camera vekk fra sentrum, vil ikke ha noe effekt i VR
 camera.position.setZ(30);
 
-const dolly = new Group();
-dolly.add(camera)
 
 
 const canvas = document.createElement('canvas');
@@ -32,63 +30,44 @@ renderer.setSize(width, height);
 document.body.appendChild(VRButton.createButton(renderer));
 renderer.xr.enabled = true;
 
-// Controller 1 (Left)
-const controller1 = renderer.xr.getController(0);
-controller1.addEventListener('selectstart', () => console.log('Left controller select start'));
-controller1.addEventListener('selectend', () => console.log('Left controller select end'));
-dolly.add(controller1);
 
-// Controller 2 (Right)
-const controller2 = renderer.xr.getController(1);
-controller2.addEventListener('selectstart', () => console.log('Right controller select start'));
-controller2.addEventListener('selectend', () => console.log('Right controller select end'));
-dolly.add(controller2);
+function handleControllerMovement() {
+    const session = renderer.xr.getSession();
+    if (!session) return;
 
+    for (const source of session.inputSources) {
+        if (!source.gamepad) continue;
 
-// Left Controller Grip
+        const gp = source.gamepad;
 
-// Right Controller Grip
+        // Prefer right stick; fall back to left stick
+        let xAxis = 0;
+        let yAxis = 0;
+        const rx = gp.axes[2] ?? 0;
+        const ry = gp.axes[3] ?? 0;
+        const lx = gp.axes[0] ?? 0;
+        const ly = gp.axes[1] ?? 0;
 
-// Variable to prevent turning every frame
-let turnDebounce = false;
-const turnAngle = Math.PI / 6; // 30 degrees snap turn
-
-// Renamed your function to be more specific
-function handleMovement(controller) {
-    if (controller.inputSource && controller.inputSource.gamepad) {
-        const gamepad = controller.inputSource.gamepad;
-        if (gamepad.axes.length >= 4) {
-            const moveSpeed = 0.05;
-            const forward = gamepad.axes[3]; // Forward/backward (usually Y axis)
-            const strafe = gamepad.axes[2];  // Left/right (usually X axis)
-
-            if (Math.abs(forward) > 0.1) {
-                dolly.translateZ(moveSpeed * forward);
-            }
-            if (Math.abs(strafe) > 0.1) {
-                dolly.translateX(moveSpeed * strafe);
-            }
+        if (Math.abs(rx) > 0.05 || Math.abs(ry) > 0.05) {
+            xAxis = rx;
+            yAxis = ry;
+        } else if (Math.abs(lx) > 0.05 || Math.abs(ly) > 0.05) {
+            xAxis = lx;
+            yAxis = ly;
+        } else {
+            continue; // deadzone
         }
-    }
-}
 
-// 4. New function to handle rotation with the other controller
-function handleRotation(controller) {
-    if (controller.inputSource && controller.inputSource.gamepad) {
-        const gamepad = controller.inputSource.gamepad;
-        if (gamepad.axes.length >= 4) {
-            const turn = gamepad.axes[2]; // Left/right (usually X axis)
+        const speed = 0.1;
+        const forward = new Vector3();
+        camera.getWorldDirection(forward);
 
-            if (Math.abs(turn) > 0.5) { // High threshold for snap turn
-                if (!turnDebounce) {
-                    // Rotate the dolly (the player rig)
-                    dolly.rotateY(turn > 0 ? -turnAngle : turnAngle);
-                    turnDebounce = true; // Set debounce flag
-                }
-            } else {
-                turnDebounce = false; // Reset debounce when stick is centered
-            }
-        }
+        // Forward/backward
+        player.position.addScaledVector(forward, -yAxis * speed);
+
+        // Strafe (right vector = forward × up)
+        const right = new Vector3().crossVectors(forward, camera.up).normalize();
+        player.position.addScaledVector(right, xAxis * speed);
     }
 }
 
@@ -111,17 +90,35 @@ window.addEventListener('resize', () => {
 })
 
 const scene = new Scene();
-scene.add(dolly)
 const solarSystem = new SolarSystem(scene);
 
-// Dette er kun hvis VR er i scenen
+const controller1 = renderer.xr.getController(0);
+const controller2 = renderer.xr.getController(1);
+scene.add(controller1);
+scene.add(controller2);
 
 
+const controllerGrip1 = renderer.xr.getControllerGrip(0);
+
+const controllerGrip2 = renderer.xr.getControllerGrip(1);
+
+const player = new Group();
+player.add(camera);
+scene.add(player);
+player.add(controller1);
+player.add(controller2);
+player.add(controllerGrip1);
+player.add(controllerGrip2);
+
+player.position.set(0, 0, 150);
 
 
 function render(){
-    handleMovement(controller2);
-    handleRotation(controller1);
+    if(renderer.xr.isPresenting){
+        handleControllerMovement();
+    } else {
+        controls.update();
+    }
     solarSystem.animate();
 
     renderer.render(scene, camera);
