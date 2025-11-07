@@ -1,6 +1,6 @@
 ﻿"use strict";
 
-import {Group, PerspectiveCamera, Scene, Vector3, WebGLRenderer} from "../build/three.module.js";
+import {Clock, Group, PerspectiveCamera, Scene, Vector3, WebGLRenderer} from "../build/three.module.js";
 import {SolarSystem} from "./SolarSystem.js";
 import {OrbitControls} from "../build/OrbitControls.js";
 import {VRButton} from "../build/VRButton.js";
@@ -11,12 +11,13 @@ const aspect = width / height;
 
 const fov = 75;
 const near = 0.1;
-const far = 1000;
+const far = 10000;
 
 const camera = new PerspectiveCamera(fov, aspect, near, far);
 // Flytter camera vekk fra sentrum, vil ikke ha noe effekt i VR
-camera.position.setZ(30);
+camera.position.setZ(50);
 
+const clock = new Clock();
 
 
 const canvas = document.createElement('canvas');
@@ -35,12 +36,15 @@ function handleControllerMovement() {
     const session = renderer.xr.getSession();
     if (!session) return;
 
+    // 3) Frame-rate independent speed
+    const dt = Math.min(clock.getDelta(), 0.05);     // clamp large pauses
+    const speed = 1.0 * (dt * 60);                   // was 0.1; 1.0 ≈ 10x faster at 60fps
+
     for (const source of session.inputSources) {
         if (!source.gamepad) continue;
 
         const gp = source.gamepad;
 
-        // Prefer right stick; fall back to left stick
         let xAxis = 0;
         let yAxis = 0;
         const rx = gp.axes[2] ?? 0;
@@ -55,17 +59,15 @@ function handleControllerMovement() {
             xAxis = lx;
             yAxis = ly;
         } else {
-            continue; // deadzone
+            continue;
         }
 
-        const speed = 0.1;
         const forward = new Vector3();
         camera.getWorldDirection(forward);
 
-        // Forward/backward
+        // Move the rig
         player.position.addScaledVector(forward, -yAxis * speed);
 
-        // Strafe (right vector = forward × up)
         const right = new Vector3().crossVectors(forward, camera.up).normalize();
         player.position.addScaledVector(right, xAxis * speed);
     }
@@ -110,7 +112,17 @@ player.add(controller2);
 player.add(controllerGrip1);
 player.add(controllerGrip2);
 
-player.position.set(0, 0, 150);
+player.position.set(0, 0, 0);
+
+renderer.xr.addEventListener('sessionstart', () => {
+    controls.enabled = false;
+    player.position.set(0, 0, 150);
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+    player.position.set(0, 0, 0);
+    controls.enabled = true;
+});
 
 
 function render(){
@@ -126,4 +138,5 @@ function render(){
     // Hvis vi ikke har VR har vi denne
     // window.requestAnimationFrame(render);
 }
+
 renderer.setAnimationLoop(render);
